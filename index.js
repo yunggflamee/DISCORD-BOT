@@ -62,6 +62,3 @@ client.on(Events.InteractionCreate, async interaction => {
 
 require('dotenv').config();
 client.login(process.env.TOKEN);
-
-
-client.login(token);
