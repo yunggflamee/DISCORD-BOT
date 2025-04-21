@@ -32,7 +32,7 @@ const loadCommandsFrom = (dir) => {
 // Load all commands including from subfolders like music/
 loadCommandsFrom('commands');
 loadCommandsFrom('commands/music')
-
+client.commands.set('play', require('./commands/music/play.js'));
 
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
@@ -73,6 +73,19 @@ client.on(Events.InteractionCreate, async interaction => {
       console.error(err);
       await interaction.reply({ content: 'There was an error!', ephemeral: true });
     }
+  }
+});
+
+// Handling message commands
+client.on('messageCreate', async (message) => {
+  if (!message.content.startsWith('+')) return;
+
+  const args = message.content.slice(1).trim().split(/ +/);
+  const command = args.shift().toLowerCase();
+
+  if (command === 'play') {
+      // Calls the play command, passing the message and args
+      client.commands.get('play').execute(message, args);
   }
 });
 
