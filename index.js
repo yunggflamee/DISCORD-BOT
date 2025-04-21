@@ -2,8 +2,8 @@ const { Client, Collection, GatewayIntentBits, Events } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 require('dotenv').config();
-const { prefix } = require('./config.json');
-const token = process.env.DISCORD_TOKEN || require('./config.json').token;
+const prefix = process.env.PREFIX || '+';  // Default to '!' if no PREFIX environment variable is set
+const token = process.env.DISCORD_TOKEN;   // Get the bot token from the environment
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent]
