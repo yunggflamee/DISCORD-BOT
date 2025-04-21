@@ -11,12 +11,27 @@ const client = new Client({
 
 client.commands = new Collection();
 
-// Load all commands
-const commandFiles = fs.readdirSync('./commands').filter(file => file.endsWith('.js'));
-for (const file of commandFiles) {
-  const command = require(`./commands/${file}`);
-  client.commands.set(command.name, command);
-}
+const loadCommandsFrom = (dir) => {
+  const commandFiles = fs.readdirSync(path.join(__dirname, dir));
+
+  for (const file of commandFiles) {
+    const fullPath = path.join(__dirname, dir, file);
+    const stat = fs.statSync(fullPath);
+
+    if (stat.isDirectory()) {
+      loadCommandsFrom(path.join(dir, file)); // Recursively load from subfolders
+    } else if (file.endsWith('.js')) {
+      const command = require(fullPath);
+      if (command.name) {
+        client.commands.set(command.name, command);
+      }
+    }
+  }
+};
+
+// Load all commands including from subfolders like music/
+loadCommandsFrom('commands');
+
 
 client.once('ready', () => {
   console.log(`✅ Logged in as ${client.user.tag}`);
