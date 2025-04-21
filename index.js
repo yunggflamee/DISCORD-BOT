@@ -31,6 +31,7 @@ const loadCommandsFrom = (dir) => {
 
 // Load all commands including from subfolders like music/
 loadCommandsFrom('commands');
+loadCommandsFrom('commands/music')
 
 
 client.once('ready', () => {
