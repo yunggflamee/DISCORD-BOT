@@ -44,8 +44,12 @@ module.exports = {
       timestamp: new Date()
     };
 
-    return isSlash
-      ? messageOrInteraction.reply({ embeds: [embed] })
-      : messageOrInteraction.channel.send({ embeds: [embed] });
+    // If it's a slash command, use interaction.reply
+    if (isSlash) {
+      return messageOrInteraction.reply({ embeds: [embed] });
+    }
+
+    // If it's a prefix command, send the embed in the channel
+    return messageOrInteraction.channel.send({ embeds: [embed] });
   }
 };
