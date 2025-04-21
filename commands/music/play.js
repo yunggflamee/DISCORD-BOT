@@ -1,62 +1,75 @@
-const { SlashCommandBuilder } = require('@discordjs/builders');
-const { joinVoiceChannel, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
+const { joinVoiceChannel, createAudioPlayer, createAudioResource, AudioPlayerStatus } = require('@discordjs/voice');
 const ytdl = require('ytdl-core');
-const { queue, player } = require('./queue');
+const ytsr = require('ytsr'); // For searching YouTube by song title
 
 module.exports = {
-  data: new SlashCommandBuilder()
-    .setName('play')
-    .setDescription('Play a YouTube song')
-    .addStringOption(option =>
-      option.setName('url')
-        .setDescription('YouTube URL')
-        .setRequired(true)),
+  name: 'play',
+  description: 'Play a song from YouTube by title or URL',
 
-  async execute(interaction) {
-    const url = interaction.options.getString('url');
-    const voiceChannel = interaction.member.voice.channel;
-
-    if (!voiceChannel) return interaction.reply('Join a voice channel first.');
-
-    const guildId = interaction.guild.id;
-    const connection = joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: guildId,
-      adapterCreator: interaction.guild.voiceAdapterCreator,
-    });
-
-    if (!queue.has(guildId)) {
-      queue.set(guildId, {
-        connection,
-        songs: [],
-      });
+  async execute(message, args, isSlash) {
+    const voiceChannel = message.member.voice.channel;
+    if (!voiceChannel) {
+      return message.reply('❌ You need to join a voice channel first!');
     }
 
-    const serverQueue = queue.get(guildId);
-    serverQueue.songs.push(url);
+    let songUrl = args.join(' '); // Get the song URL or title
+    if (!songUrl) {
+      return message.reply('❌ You need to provide a song title or URL!');
+    }
 
-    if (serverQueue.songs.length === 1) {
-      playSong(guildId);
-      interaction.reply(`🎶 Playing: ${url}`);
-    } else {
-      interaction.reply(`📦 Queued: ${url}`);
+    try {
+      // Check if the song is a valid YouTube URL
+      if (ytdl.validateURL(songUrl)) {
+        // It's a valid YouTube URL, so play it directly
+        this.playSongFromUrl(songUrl, voiceChannel, message, isSlash);
+      } else {
+        // Otherwise, search for the song by title
+        this.searchAndPlay(songUrl, voiceChannel, message, isSlash);
+      }
+    } catch (error) {
+      console.error(error);
+      message.reply('❌ There was an error while trying to play the song!');
     }
   },
+
+  async playSongFromUrl(songUrl, voiceChannel, message, isSlash) {
+    const stream = ytdl(songUrl, { filter: 'audioonly' });
+    const resource = createAudioResource(stream);
+
+    const connection = joinVoiceChannel({
+      channelId: voiceChannel.id,
+      guildId: voiceChannel.guild.id,
+      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
+    });
+
+    const player = createAudioPlayer();
+    player.play(resource);
+    connection.subscribe(player);
+
+    player.on(AudioPlayerStatus.Playing, () => {
+      message.reply(`🎶 Now playing: ${songUrl}`);
+    });
+
+    player.on(AudioPlayerStatus.Idle, () => {
+      connection.destroy();
+    });
+  },
+
+  async searchAndPlay(songTitle, voiceChannel, message, isSlash) {
+    try {
+      // Search YouTube for the song title
+      const searchResults = await ytsr(songTitle, { limit: 1 });
+      const firstResult = searchResults.items[0];
+      
+      if (!firstResult || firstResult.type !== 'video') {
+        return message.reply('❌ No results found for that song.');
+      }
+
+      const songUrl = firstResult.url; // Get the URL of the first search result
+      this.playSongFromUrl(songUrl, voiceChannel, message, isSlash);
+    } catch (error) {
+      console.error(error);
+      message.reply('❌ There was an error while trying to search for the song!');
+    }
+  }
 };
-
-function playSong(guildId) {
-  const serverQueue = queue.get(guildId);
-  if (!serverQueue || !serverQueue.songs.length) return;
-
-  const url = serverQueue.songs[0];
-  const stream = ytdl(url, { filter: 'audioonly' });
-  const resource = createAudioResource(stream);
-
-  serverQueue.connection.subscribe(player);
-  player.play(resource);
-
-  player.once(AudioPlayerStatus.Idle, () => {
-    serverQueue.songs.shift();
-    playSong(guildId);
-  });
-}
