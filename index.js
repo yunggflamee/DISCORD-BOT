@@ -1,3 +1,4 @@
+require('./server'); // This starts the keep-alive server
 const { Client, Collection, GatewayIntentBits, Events } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
